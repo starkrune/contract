@@ -20,7 +20,6 @@ mod RuneComponent {
         Rune_limit: u128,
         Rune_number: u64,
         Rune_rune: Rune,
-        Rune_spacers: u32,
         Rune_supply: u128,
         Rune_symbol: u8,
         Rune_timestamp: u64,
@@ -62,7 +61,7 @@ mod RuneComponent {
         +SRC5Component::HasComponent<TContractState>,
         +Drop<TContractState>
     > of IRuneInfo<ComponentState<TContractState>> {
-        fn info(self: @ComponentState<TContractState>, rune: u128) -> RuneInfo {
+        fn info(self: @ComponentState<TContractState>, rune: Rune) -> RuneInfo {
             RuneInfo {
                 burned: self.Rune_burned.read(),
                 difficulty: self.Rune_difficulty.read(),
@@ -75,7 +74,6 @@ mod RuneComponent {
                 limit: self.Rune_limit.read(),
                 number: self.Rune_number.read(),
                 rune: self.Rune_rune.read(),
-                spacers: self.Rune_spacers.read(),
                 supply: self.Rune_supply.read(),
                 symbol: self.Rune_symbol.read(),
                 timestamp: self.Rune_timestamp.read(),
@@ -102,9 +100,8 @@ mod RuneComponent {
             end: u32,
             fee: u256,
             id: u16,
-            limit: Rune,
-            rune: u128,
-            spacers: u32,
+            limit: u128,
+            rune: Rune,
             symbol: u8,
         ) {
             let tx_info = starknet::get_tx_info().unbox();
@@ -122,7 +119,6 @@ mod RuneComponent {
             self.Rune_limit.write(limit);
             self.Rune_number.write(0);
             self.Rune_rune.write(rune);
-            self.Rune_spacers.write(spacers);
             self.Rune_supply.write(0);
             self.Rune_symbol.write(symbol);
             self.Rune_timestamp.write(block_info.block_timestamp);

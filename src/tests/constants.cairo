@@ -12,5 +12,4 @@ const ID: u16 = 1;
 const SYMBOL: u8 = 162; // ¢
 const SUPPLY: u256 = 21000000;
 const LIMIT: u128 = 1000_u128;
-const RUNE: u128 = 0xffffffffffffffffffffffffffffffff_u128;
-const SPACERS: u32 = 1;
+const RUNE: felt252 = 'Stark Rune';

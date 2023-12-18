@@ -4,15 +4,14 @@ use starknet::ContractAddress;
 const IRUNE_ETCHING_ID: felt252 = 0x38532670b97b4da43510c78e9b61dac9b4142355920ef5c8b81b4ed60616fd0;
 const IRUNE_INFO_ID: felt252 = 0x2f86d2614c0ae7a24c9f7f405822ad1480fc06af84c5443a0218544a2fa819d;
 
-type Rune = u128;
+type Rune = felt252;
 
 #[derive(Clone, Copy, Debug, Destruct, Drop, PartialEq, Serde)]
 struct Etching {
     divisibility: u8,
     difficulty: u128,
     fee: u256,
-    rune: u128,
-    spacers: u32,
+    rune: Rune,
     supply: u128,
     symbol: u8,
     term: u32
@@ -35,8 +34,7 @@ struct RuneInfo {
     id: u16, // rune id
     limit: u128, // limit per rune
     number: u64, // number of runes
-    rune: u128, // rune name, e.g. 0="A" 25="Z" 26="AA" u128::max_value()="BCGDENLQRQWDSLRUGSNLBTMFIJAV"
-    spacers: u32, // rune spacers, e.g. 0b110 = A•A•AA 0b010=AA•AA 0b100=A•AAA 0b010=AA•AA
+    rune: Rune, // rune name
     supply: u128, // max supply
     symbol: u8, // rune symbol
     timestamp: u64 // timestamp of rune creation
@@ -44,5 +42,5 @@ struct RuneInfo {
 
 #[starknet::interface]
 trait IRuneInfo<TState> {
-    fn info(self: @TState, rune: u128) -> RuneInfo;
+    fn info(self: @TState, rune: Rune) -> RuneInfo;
 }

@@ -2,6 +2,7 @@
 mod RuneMock {
     use openzeppelin::introspection::src5::SRC5Component;
     use starkrune::rune::RuneComponent;
+    use starkrune::rune::interface::{Rune};
 
     component!(path: SRC5Component, storage: src5, event: SRC5Event);
     component!(path: RuneComponent, storage: rune, event: RuneEvent);
@@ -43,12 +44,9 @@ mod RuneMock {
         fee: u256,
         id: u16,
         limit: u128,
-        rune: u128,
-        spacers: u32,
+        rune: Rune,
         symbol: u8,
     ) {
-        self
-            .rune
-            .initializer(difficulty, divisibility, end, fee, id, limit, rune, spacers, symbol,);
+        self.rune.initializer(difficulty, divisibility, end, fee, id, limit, rune, symbol,);
     }
 }

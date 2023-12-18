@@ -3,9 +3,7 @@ use starkrune::rune::RuneComponent;
 use starkrune::rune::RuneComponent::{InternalImpl, RuneInfoImpl};
 use openzeppelin::introspection::src5::SRC5Component::SRC5Impl;
 use starkrune::tests::mocks::rune_mock::RuneMock;
-use starkrune::tests::constants::{
-    DIFFICULTY, DIVISIBILITY, END, FEE, ID, LIMIT, RUNE, SPACERS, SYMBOL
-};
+use starkrune::tests::constants::{DIFFICULTY, DIVISIBILITY, END, FEE, ID, LIMIT, RUNE, SYMBOL};
 use starknet::testing;
 
 //
@@ -23,7 +21,7 @@ fn COMPONENT_STATE() -> ComponentState {
 
 fn setup() -> ComponentState {
     let mut state = COMPONENT_STATE();
-    state.initializer(DIFFICULTY, DIVISIBILITY, END, FEE, ID, LIMIT, RUNE, SPACERS, SYMBOL);
+    state.initializer(DIFFICULTY, DIVISIBILITY, END, FEE, ID, LIMIT, RUNE, SYMBOL);
     state
 }
 
@@ -38,7 +36,7 @@ fn test_initialize() {
     let mut state = COMPONENT_STATE();
     let mock_state = CONTRACT_STATE();
 
-    state.initializer(DIFFICULTY, DIVISIBILITY, END, FEE, ID, LIMIT, RUNE, SPACERS, SYMBOL);
+    state.initializer(DIFFICULTY, DIVISIBILITY, END, FEE, ID, LIMIT, RUNE, SYMBOL);
     let info = state.info(RUNE);
     assert(info.difficulty == DIFFICULTY, 'Invalid difficulty');
     assert(info.divisibility == DIVISIBILITY, 'Invalid divisibility');
@@ -47,7 +45,6 @@ fn test_initialize() {
     assert(info.id == ID, 'Invalid id');
     assert(info.limit == LIMIT, 'Invalid limit');
     assert(info.rune == RUNE, 'Invalid rune');
-    assert(info.spacers == SPACERS, 'Invalid spacers');
     assert(info.symbol == SYMBOL, 'Invalid symbol');
     assert(info.burned == 0, 'Invalid burned');
     assert(info.supply == 0, 'Invalid supply');
