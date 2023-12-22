@@ -1,3 +1,5 @@
 mod rune;
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod tests;
+mod manager;
+

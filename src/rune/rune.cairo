@@ -1,131 +1,149 @@
-#[starknet::component]
-mod RuneComponent {
-    use openzeppelin::introspection::src5::SRC5Component::InternalTrait as SRC5InternalTrait;
-    use openzeppelin::introspection::src5::SRC5Component;
-    use starknet::ContractAddress;
-    use starkrune::rune::interface::{
-        Etching, IRuneEtching, RuneInfo, IRuneInfo, IRUNE_ETCHING_ID, IRUNE_INFO_ID, Rune
+#[starknet::interface]
+trait IRuneEtching<TState> {
+    fn end(self: @TState) -> u64;
+    fn difficulty(self: @TState) -> u128;
+    fn limit(self: @TState) -> u256;
+    fn max_supply(self: @TState) -> u256;
+    fn fee(self: @TState) -> u256;
+    fn etch(ref self: TState, limit: u256) -> bool;
+}
+
+#[starknet::contract]
+mod Rune {
+    use openzeppelin::token::erc20::ERC20Component;
+    use openzeppelin::token::erc20::interface::{
+        IERC20, IERC20Dispatcher, IERC20DispatcherTrait, IERC20Metadata
     };
+    use starknet::{ContractAddress, get_caller_address};
+    use core::integer::{BoundedInt, u256_from_felt252};
+    use alexandria_math::{BitShift, count_digits_of_base};
+    use super::IRuneEtching;
+
+    component!(path: ERC20Component, storage: erc20, event: ERC20Event);
+
+    #[abi(embed_v0)]
+    impl ERC20Impl = ERC20Component::ERC20Impl<ContractState>;
+    #[abi(embed_v0)]
+    impl ERC20CamelOnlyImpl = ERC20Component::ERC20CamelOnlyImpl<ContractState>;
+    #[abi(embed_v0)]
+    impl ERC20MetadataImpl = ERC20Component::ERC20MetadataImpl<ContractState>;
+
+    impl ERC20InternalImpl = ERC20Component::InternalImpl<ContractState>;
 
     #[storage]
     struct Storage {
-        Rune_burned: u128,
-        Rune_difficulty: u128,
-        Rune_divisibility: u8,
-        Rune_end: u32,
-        Rune_etching: felt252, // tx hash
-        Rune_fee: u256,
-        Rune_height: u64,
-        Rune_id: u16,
-        Rune_limit: u128,
-        Rune_number: u64,
-        Rune_rune: Rune,
-        Rune_supply: u128,
-        Rune_symbol: u8,
-        Rune_timestamp: u64,
-        Rune_balances: LegacyMap<ContractAddress, u128>,
+        #[substorage(v0)]
+        erc20: ERC20Component::Storage,
+        end: u64,
+        difficulty: u128,
+        limit: u256,
+        max_supply: u256,
+        fee: u256,
+        fee_token: ContractAddress,
+        deployer: ContractAddress,
+        used_hash: LegacyMap<felt252, bool>,
     }
 
     #[event]
     #[derive(Drop, starknet::Event)]
-    enum Event {}
-
-    #[derive(Drop, starknet::Event)]
-    struct RuneEtched {
-        #[key]
-        operator: ContractAddress,
-        etch: Etching
+    enum Event {
+        #[flat]
+        ERC20Event: ERC20Component::Event,
     }
 
-    mod Errors {
-        const INVALID_ACCOUNT: felt252 = 'Rune: invalid account';
-    }
-
-    #[embeddable_as(RuneEtchingImpl)]
-    impl RuneEtching<
-        TContractState,
-        +HasComponent<TContractState>,
-        +SRC5Component::HasComponent<TContractState>,
-        +Drop<TContractState>
-    > of IRuneEtching<ComponentState<TContractState>> {
-        fn etch(self: @ComponentState<TContractState>, etching: Etching) -> felt252 {
-            // return tx hash
-            0
+    #[constructor]
+    fn constructor(
+        ref self: ContractState,
+        name: felt252,
+        symbol: felt252,
+        term: u64,
+        difficulty: u128,
+        limit: u256,
+        max_supply: u256,
+        fee: u256,
+        fee_token: ContractAddress,
+        deployer: ContractAddress,
+    ) {
+        let block_number = starknet::info::get_block_number();
+        self.erc20.initializer(name, symbol);
+        if term == 0 {
+            self.end.write(BoundedInt::max());
+        } else {
+            self.end.write(block_number + term);
         }
+        self.difficulty.write(difficulty);
+        self.limit.write(limit);
+        self.max_supply.write(max_supply);
+        self.fee.write(fee);
+        self.fee_token.write(fee_token);
+        self.deployer.write(deployer);
     }
 
-    #[embeddable_as(RuneInfoImpl)]
-    impl GetRuneInfo<
-        TContractState,
-        +HasComponent<TContractState>,
-        +SRC5Component::HasComponent<TContractState>,
-        +Drop<TContractState>
-    > of IRuneInfo<ComponentState<TContractState>> {
-        fn info(self: @ComponentState<TContractState>, rune: Rune) -> RuneInfo {
-            RuneInfo {
-                burned: self.Rune_burned.read(),
-                difficulty: self.Rune_difficulty.read(),
-                divisibility: self.Rune_divisibility.read(),
-                end: self.Rune_end.read(),
-                etching: self.Rune_etching.read(),
-                fee: self.Rune_fee.read(),
-                height: self.Rune_height.read(),
-                id: self.Rune_id.read(),
-                limit: self.Rune_limit.read(),
-                number: self.Rune_number.read(),
-                rune: self.Rune_rune.read(),
-                supply: self.Rune_supply.read(),
-                symbol: self.Rune_symbol.read(),
-                timestamp: self.Rune_timestamp.read(),
+    #[external(v0)]
+    impl RuneEtchingImpl of super::IRuneEtching<ContractState> {
+        fn end(self: @ContractState) -> u64 {
+            self.end.read()
+        }
+
+        fn difficulty(self: @ContractState) -> u128 {
+            self.difficulty.read()
+        }
+
+        fn limit(self: @ContractState) -> u256 {
+            self.limit.read()
+        }
+
+        fn max_supply(self: @ContractState) -> u256 {
+            self.max_supply.read()
+        }
+
+        fn fee(self: @ContractState) -> u256 {
+            self.fee.read()
+        }
+
+        fn etch(ref self: ContractState, limit: u256,) -> bool {
+            assert(limit + self.total_supply() <= self.max_supply(), 'max supply reached');
+            let execute_info = starknet::info::get_execution_info().unbox();
+
+            let block_number = execute_info.block_info.unbox().block_number;
+            assert(block_number <= self.end.read(), 'etching is over');
+
+            let tx_hash = execute_info.tx_info.unbox().transaction_hash;
+            // difficulty check
+            let difficulty = self.difficulty.read();
+            if difficulty != 0 {
+                let high = u256_from_felt252(tx_hash).high;
+                let prefix = self.difficulty.read();
+                let size = count_digits_of_base(prefix, 16);
+                let head_letter = BitShift::shr(
+                    high, count_digits_of_base(high, 16) * 4 - size * 4
+                );
+                assert(head_letter == prefix, 'not enough difficulty');
             }
-        }
-    }
 
+            assert(!self.used_hash.read(tx_hash), 'multicall is not allowed');
 
-    //
-    // Internal
-    //
+            // pay fee
+            let caller = get_caller_address();
 
-    #[generate_trait]
-    impl InternalImpl<
-        TContractState,
-        +HasComponent<TContractState>,
-        impl SRC5: SRC5Component::HasComponent<TContractState>,
-        +Drop<TContractState>
-    > of InternalTrait<TContractState> {
-        fn initializer(
-            ref self: ComponentState<TContractState>,
-            difficulty: u128,
-            divisibility: u8,
-            end: u32,
-            fee: u256,
-            id: u16,
-            limit: u128,
-            rune: Rune,
-            symbol: u8,
-        ) {
-            let tx_info = starknet::get_tx_info().unbox();
-            let block_info = starknet::get_block_info().unbox();
-            let tx_hash = tx_info.transaction_hash;
+            if self.fee.read() > 0 {
+                let fee_token_dispatcher = IERC20Dispatcher {
+                    contract_address: self.fee_token.read()
+                };
+                assert(
+                    fee_token_dispatcher
+                        .transfer_from(caller, self.deployer.read(), self.fee.read(),),
+                    'pay fee failed'
+                );
+            }
 
-            self.Rune_burned.write(0);
-            self.Rune_difficulty.write(difficulty);
-            self.Rune_divisibility.write(divisibility);
-            self.Rune_end.write(end);
-            self.Rune_etching.write(tx_hash);
-            self.Rune_fee.write(fee);
-            self.Rune_height.write(block_info.block_number);
-            self.Rune_id.write(id);
-            self.Rune_limit.write(limit);
-            self.Rune_number.write(0);
-            self.Rune_rune.write(rune);
-            self.Rune_supply.write(0);
-            self.Rune_symbol.write(symbol);
-            self.Rune_timestamp.write(block_info.block_timestamp);
+            // mark tx as used
+            self.used_hash.write(tx_hash, true);
 
-            let mut src5_component = get_dep_component_mut!(ref self, SRC5);
-            src5_component.register_interface(IRUNE_ETCHING_ID);
-            src5_component.register_interface(IRUNE_INFO_ID);
+            // mint token
+            self.erc20._mint(caller, limit);
+
+            true
         }
     }
 }
