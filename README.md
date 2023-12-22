@@ -1,0 +1,13 @@
+# starkrune contract
+
+## sepolia
+
+TEST token classhash: 0x003bd7ebf6f67d24dd62fe70558955e4b3db492bec52be3f21c3d015ada0fe13
+
+TEST token address: [0x0641d9b355092020e0ac27c94e821f1cd86df589f2feda2b66102fc5a9a89543](https://sepolia.voyager.online/contract/0x0641d9b355092020e0ac27c94e821f1cd86df589f2feda2b66102fc5a9a89543)
+
+Indexer classhash: 0x01bd8bfcd05ad736166ce40dbc88a2bc9c66a32aec8ca2993c35bdf92d2a8059
+
+Rune classhash: 0x0519540e46090a65b8e22496c2863a261bf097345c6b215cfe7bbe917be0e0eb
+
+Indexer address: [0x01b6791f59d0177c65df5b34e6dd578b4bcc131e2aaabcf7278a08808ed0a514](https://sepolia.voyager.online/contract/0x01B6791F59D0177c65df5B34E6dd578b4bcc131e2aAABCf7278A08808ED0A514#code)
