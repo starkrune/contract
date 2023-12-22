@@ -2,14 +2,16 @@
 trait IRuneEtching<TState> {
     fn end(self: @TState) -> u64;
     fn difficulty(self: @TState) -> u128;
-    fn limit(self: @TState) -> u256;
+    fn limit(self: @TState) -> u128;
     fn max_supply(self: @TState) -> u256;
     fn fee(self: @TState) -> u256;
-    fn etch(ref self: TState, limit: u256) -> bool;
+    fn etch(ref self: TState, limit: u128) -> bool;
 }
 
 #[starknet::contract]
 mod Rune {
+    use core::option::OptionTrait;
+    use core::traits::TryInto;
     use openzeppelin::token::erc20::ERC20Component;
     use openzeppelin::token::erc20::interface::{
         IERC20, IERC20Dispatcher, IERC20DispatcherTrait, IERC20Metadata
@@ -36,7 +38,7 @@ mod Rune {
         erc20: ERC20Component::Storage,
         end: u64,
         difficulty: u128,
-        limit: u256,
+        limit: u128,
         max_supply: u256,
         fee: u256,
         fee_token: ContractAddress,
@@ -58,7 +60,7 @@ mod Rune {
         symbol: felt252,
         term: u64,
         difficulty: u128,
-        limit: u256,
+        limit: u128,
         max_supply: u256,
         fee: u256,
         fee_token: ContractAddress,
@@ -89,7 +91,7 @@ mod Rune {
             self.difficulty.read()
         }
 
-        fn limit(self: @ContractState) -> u256 {
+        fn limit(self: @ContractState) -> u128 {
             self.limit.read()
         }
 
@@ -101,8 +103,9 @@ mod Rune {
             self.fee.read()
         }
 
-        fn etch(ref self: ContractState, limit: u256,) -> bool {
-            assert(limit + self.total_supply() <= self.max_supply(), 'max supply reached');
+        fn etch(ref self: ContractState, limit: u128) -> bool {
+            assert(limit <= self.limit.read(), 'limit exceeded');
+            assert(limit.into() + self.total_supply() <= self.max_supply(), 'max supply reached');
             let execute_info = starknet::info::get_execution_info().unbox();
 
             let block_number = execute_info.block_info.unbox().block_number;
@@ -125,14 +128,13 @@ mod Rune {
 
             // pay fee
             let caller = get_caller_address();
-
-            if self.fee.read() > 0 {
+            let fee = self.fee.read();
+            if fee > 0 {
                 let fee_token_dispatcher = IERC20Dispatcher {
                     contract_address: self.fee_token.read()
                 };
                 assert(
-                    fee_token_dispatcher
-                        .transfer_from(caller, self.deployer.read(), self.fee.read(),),
+                    fee_token_dispatcher.transfer_from(caller, self.deployer.read(), fee),
                     'pay fee failed'
                 );
             }
@@ -141,7 +143,7 @@ mod Rune {
             self.used_hash.write(tx_hash, true);
 
             // mint token
-            self.erc20._mint(caller, limit);
+            self.erc20._mint(caller, limit.into());
 
             true
         }
