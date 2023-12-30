@@ -1,3 +1,4 @@
+use core::debug::PrintTrait;
 use core::option::OptionTrait;
 use core::traits::TryInto;
 use core::clone::Clone;
@@ -50,6 +51,7 @@ fn test_indexer_deploy() {
     let (fee, fee_token) = rune_index_dispatcher.issuance_fee_info();
     assert(fee == 1000000000000000000000, 'fee is wrong');
     assert(fee_token == fee_token_address, 'fee token address is wrong');
+    assert(rune_index_dispatcher.owner() == test_address(), 'owner is wrong');
 }
 
 fn issuance() -> (ContractAddress, ContractAddress, ContractAddress) {
@@ -67,15 +69,16 @@ fn issuance() -> (ContractAddress, ContractAddress, ContractAddress) {
     start_prank(CheatTarget::One(indexer_address), caller_address);
     let rune_index_dispatcher = IRuneIndexerDispatcher { contract_address: indexer_address };
     let new_issuance = IssuanceInfo {
-        term: 0,
-        difficulty: 0,
-        limit: 1000,
-        max_supply: 10000000,
-        fee: 1,
         name: 'Test',
         symbol: 'TEST',
+        term: 0,
+        limit: 1000,
+        difficulty: 0,
+        max_supply: 10000000,
+        fee: 1,
         fee_token: fee_token_address,
-        fee_recipient: test_address()
+        fee_recipient: test_address(),
+        token_address: contract_address_const::<0>()
     };
     let rune_address = rune_index_dispatcher.issuance(new_issuance);
     stop_prank(CheatTarget::One(indexer_address));
@@ -113,4 +116,22 @@ fn use_can_etch_with_zero_difficulty() {
     assert(rune_dispatcher.etch(1000), 'can not etch');
     assert(rune_erc20_dispatcher.balance_of(caller_address) == 1000, 'balance is not correct');
     stop_prank(CheatTarget::One(rune_address));
+}
+
+#[test]
+fn test_rune_infos_get() {
+    let (rune_address, indexer_address, fee_token_address) = issuance();
+    let rune_index_dispatcher = IRuneIndexerDispatcher { contract_address: indexer_address };
+    let info: IssuanceInfo = rune_index_dispatcher.get_rune_info('Test');
+    let recipent = test_address();
+    assert(info.name == 'Test', 'rune name is not correct');
+    assert(info.symbol == 'TEST', 'rune symbol is not correct');
+    assert(info.term == 0, 'rune term is not correct');
+    assert(info.limit == 1000, 'rune limit is not correct');
+    assert(info.difficulty == 0, 'rune difficulty is not correct');
+    assert(info.max_supply == 10000000, 'rune max_supply is not correct');
+    assert(info.fee == 1, 'rune fee is not correct');
+    assert(info.fee_token == fee_token_address, 'rune fee_token is not correct');
+    assert(info.fee_recipient == recipent, 'rune recipient is not correct');
+    assert(info.token_address != contract_address_const::<0>(), 'rune token_address isnt change');
 }

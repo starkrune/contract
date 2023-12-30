@@ -1,38 +1,44 @@
-use starknet::{ContractAddress, ClassHash};
+use starknet::{ContractAddress, ClassHash, StorePacking};
 
 #[starknet::interface]
 trait IRuneIndexer<TState> {
     fn issuance(ref self: TState, info: IssuanceInfo) -> ContractAddress;
     fn issuance_fee_info(self: @TState) -> (u256, ContractAddress);
     fn get_rune_address(self: @TState, name: felt252) -> ContractAddress;
+    fn get_rune_info(self: @TState, name: felt252) -> IssuanceInfo;
+    fn owner(self: @TState) -> ContractAddress;
     fn upgrade(ref self: TState, new_class_hash: ClassHash) -> bool;
 }
 
 
-#[derive(Clone, Copy, Destruct, Drop, PartialEq, Serde)]
+#[derive(Clone, Destruct, Drop, PartialEq, Serde, starknet::Store)]
 struct IssuanceInfo {
-    term: u64,
-    difficulty: u128,
-    limit: u128,
-    max_supply: u256,
-    fee: u256,
-    name: felt252,
-    symbol: felt252,
     fee_token: ContractAddress,
     fee_recipient: ContractAddress,
+    symbol: felt252,
+    name: felt252,
+    term: u64,
+    limit: u64,
+    difficulty: u128,
+    max_supply: u256,
+    fee: u256,
+    token_address: ContractAddress,
 }
 
 #[starknet::contract]
 mod RuneIndexer {
+    use core::result::ResultTrait;
+    use core::array::ArrayTrait;
     use core::traits::{Into, TryInto};
+    use option::OptionTrait;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::upgrades::upgradeable::UpgradeableComponent;
     use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
-    use option::OptionTrait;
     use starknet::{
-        ContractAddress, get_caller_address, deploy_syscall, ClassHash, contract_address_to_felt252
+        ContractAddress, get_caller_address, deploy_syscall, ClassHash, contract_address_to_felt252,
     };
     use starkrune::rune::Rune;
+    use super::IssuanceInfo;
 
     component!(path: OwnableComponent, storage: ownable, event: OwnerEvent);
     component!(path: UpgradeableComponent, storage: upgradeable, event: UpgradeableEvent);
@@ -50,7 +56,9 @@ mod RuneIndexer {
         fee_token: ContractAddress,
         fee: u256,
         runes_address: LegacyMap<felt252, ContractAddress>,
+        runes_info: LegacyMap<felt252, IssuanceInfo>,
     }
+
 
     #[event]
     #[derive(Drop, starknet::Event)]
@@ -58,15 +66,35 @@ mod RuneIndexer {
         #[flat]
         OwnerEvent: OwnableComponent::Event,
         #[flat]
-        UpgradeableEvent: UpgradeableComponent::Event
+        UpgradeableEvent: UpgradeableComponent::Event,
+        CreatedRune: CreatedRune
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct CreatedRune {
+        fee_token: ContractAddress,
+        fee_recipient: ContractAddress,
+        #[key]
+        name: felt252,
+        symbol: felt252,
+        term: u64,
+        limit: u64,
+        difficulty: u128,
+        max_supply: u256,
+        fee: u256,
+        token_address: ContractAddress,
     }
 
 
     #[constructor]
     fn constructor(
-        ref self: ContractState, fee: felt252, fee_token: ContractAddress, class_hash: ClassHash
+        ref self: ContractState,
+        fee: felt252,
+        fee_token: ContractAddress,
+        class_hash: ClassHash,
+        owner: ContractAddress
     ) {
-        self.ownable.initializer(get_caller_address());
+        self.ownable.initializer(owner);
         self.fee.write(fee.into());
         self.fee_token.write(fee_token);
         self.rune_class_hash.write(class_hash);
@@ -74,8 +102,10 @@ mod RuneIndexer {
 
     #[external(v0)]
     impl IRuneIndexerImpl of super::IRuneIndexer<ContractState> {
-        fn issuance(ref self: ContractState, info: super::IssuanceInfo) -> ContractAddress {
+        fn issuance(ref self: ContractState, info: IssuanceInfo) -> ContractAddress {
             let caller = get_caller_address();
+
+            let mut tmp_info = info.clone();
             let rune_address = self.runes_address.read(info.name);
             assert(rune_address.is_zero(), 'Rune already exists');
 
@@ -110,6 +140,23 @@ mod RuneIndexer {
             )
                 .expect('issuance new rune failed');
             self.runes_address.write(info.name, contract_address);
+            tmp_info.token_address = contract_address;
+            self.runes_info.write(info.name, tmp_info);
+            self
+                .emit(
+                    CreatedRune {
+                        fee_token: info.fee_token,
+                        fee_recipient: info.fee_recipient,
+                        name: info.name,
+                        symbol: info.symbol,
+                        term: info.term,
+                        limit: info.limit,
+                        difficulty: info.difficulty,
+                        max_supply: info.max_supply,
+                        fee: info.fee,
+                        token_address: contract_address
+                    }
+                );
             contract_address
         }
 
@@ -119,6 +166,14 @@ mod RuneIndexer {
 
         fn get_rune_address(self: @ContractState, name: felt252) -> ContractAddress {
             self.runes_address.read(name)
+        }
+
+        fn get_rune_info(self: @ContractState, name: felt252) -> IssuanceInfo {
+            self.runes_info.read(name)
+        }
+
+        fn owner(self: @ContractState) -> ContractAddress {
+            self.ownable.Ownable_owner.read()
         }
 
         fn upgrade(ref self: ContractState, new_class_hash: ClassHash) -> bool {
